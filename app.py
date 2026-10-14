@@ -1,3 +1,4 @@
+import os
 import pickle
 from flask import Flask, render_template_string, request
 import numpy as np
@@ -5,9 +6,28 @@ import pandas as pd
 
 app = Flask(__name__)
 
-# Load the trained Naive Bayes model
-with open('naive_bayes.pkl', 'rb') as f:
-  model = pickle.load(f)
+# Safely load the trained Naive Bayes model
+MODEL_PATH = 'naive_bayes.pkl'  # Change this if your file name is different (e.g., 'naive.pkl')
+
+model = None
+model_load_error = None
+
+try:
+  if os.path.exists(MODEL_PATH):
+    with open(MODEL_PATH, 'rb') as f:
+      model = pickle.load(f)
+  else:
+    # Fallback to check alternative common naming
+    alt_path = 'naive.pkl'
+    if os.path.exists(alt_path):
+      with open(alt_path, 'rb') as f:
+        model = pickle.load(f)
+    else:
+      model_load_error = (
+          f"Model file '{MODEL_PATH}' (or 'naive.pkl') not found in directory."
+      )
+except Exception as e:
+  model_load_error = f'Error loading model: {str(e)}'
 
 # HTML template with modern Tailwind CSS layout
 HTML_TEMPLATE = """
@@ -29,6 +49,13 @@ HTML_TEMPLATE = """
 
         <!-- Form Content -->
         <div class="p-8">
+            {% if model_error %}
+            <div class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg">
+                <p class="font-bold">Configuration Warning</p>
+                <p>{{ model_error }}</p>
+            </div>
+            {% endif %}
+
             <form action="/predict" method="POST" class="space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     
@@ -125,11 +152,20 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def home():
-  return render_template_string(HTML_TEMPLATE, prediction_text=None)
+  return render_template_string(
+      HTML_TEMPLATE, prediction_text=None, model_error=model_load_error
+  )
 
 
 @app.route('/predict', methods=['POST'])
 def predict():
+  if model is None:
+    return render_template_string(
+        HTML_TEMPLATE,
+        prediction_text='Error: Model is not loaded.',
+        model_error=model_load_error,
+    )
+
   try:
     # Extract values from form input
     education = request.form['Education']
@@ -166,7 +202,7 @@ def predict():
     # Predict using the loaded Naive Bayes model
     prediction = model.predict(input_data)[0]
 
-    # Map output (adjust labels if your encoding differs: 1 = Leave, 0 = Stay)
+    # Map output (1 = Leave, 0 = Stay)
     result_text = (
         'Employee Likely to Leave'
         if prediction == 1
@@ -174,12 +210,14 @@ def predict():
     )
 
     return render_template_string(
-        HTML_TEMPLATE, prediction_text=result_text
+        HTML_TEMPLATE, prediction_text=result_text, model_error=model_load_error
     )
 
   except Exception as e:
     return render_template_string(
-        HTML_TEMPLATE, prediction_text=f'Error in prediction: {str(e)}'
+        HTML_TEMPLATE,
+        prediction_text=f'Error in prediction: {str(e)}',
+        model_error=model_load_error,
     )
 
 

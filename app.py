@@ -7,7 +7,7 @@ import pandas as pd
 app = Flask(__name__)
 
 # Safely load the trained Naive Bayes model
-MODEL_PATH = 'naive_bayes.pkl'  # Update if your file name is 'naive.pkl'
+MODEL_PATH = 'naive_bayes.pkl'  # Change to 'naive.pkl' if that is your exact file name
 
 model = None
 model_load_error = None
@@ -171,13 +171,12 @@ def predict():
     joining_year = int(request.form['JoiningYear'])
     city = request.form['City']
     payment_tier = int(request.form['PaymentTier'])
-    age = int(request.main['Age'] if 'Age' in request.main else request.form['Age']) # Safely parse age
     age = int(request.form['Age'])
     gender = request.form['Gender']
     ever_benched = request.form['EverBenched']
     exp_domain = int(request.form['ExperienceInCurrentDomain'])
 
-    # Map categorical text features into numeric equivalents (matching LabelEncoder sorting)
+    # Map categorical text features into numeric values to prevent string-to-float errors
     education_map = {'Bachelors': 0, 'Masters': 1, 'PHD': 2}
     city_map = {'Bangalore': 0, 'New Delhi': 1, 'Pune': 2}
     gender_map = {'Female': 0, 'Male': 1}
@@ -188,7 +187,7 @@ def predict():
     gender_val = gender_map.get(gender, 0)
     benched_val = ever_benched_map.get(ever_benched, 0)
 
-    # Format input into a numeric DataFrame matching model feature order
+    # Format input into a numeric DataFrame matching model feature order[cite: 2]
     input_data = pd.DataFrame(
         [[
             edu_val,

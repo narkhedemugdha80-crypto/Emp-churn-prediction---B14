@@ -7,7 +7,7 @@ import pandas as pd
 app = Flask(__name__)
 
 # Safely load the trained Naive Bayes model
-MODEL_PATH = 'naive_bayes.pkl'  # Change this if your file name is different (e.g., 'naive.pkl')
+MODEL_PATH = 'navie.pkl'  # Change this if your file name is different (e.g., 'naive.pkl')
 
 model = None
 model_load_error = None

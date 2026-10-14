@@ -7,7 +7,7 @@ import pandas as pd
 app = Flask(__name__)
 
 # Safely load the trained Naive Bayes model
-MODEL_PATH = 'navie.pkl'  # Change this if your file name is different (e.g., 'naive.pkl')
+MODEL_PATH = 'naive_bayes.pkl'  # Update if your file name is 'naive.pkl'
 
 model = None
 model_load_error = None
@@ -17,7 +17,6 @@ try:
     with open(MODEL_PATH, 'rb') as f:
       model = pickle.load(f)
   else:
-    # Fallback to check alternative common naming
     alt_path = 'naive.pkl'
     if os.path.exists(alt_path):
       with open(alt_path, 'rb') as f:
@@ -167,37 +166,51 @@ def predict():
     )
 
   try:
-    # Extract values from form input
+    # Extract string values from form input
     education = request.form['Education']
     joining_year = int(request.form['JoiningYear'])
     city = request.form['City']
     payment_tier = int(request.form['PaymentTier'])
+    age = int(request.main['Age'] if 'Age' in request.main else request.form['Age']) # Safely parse age
     age = int(request.form['Age'])
     gender = request.form['Gender']
     ever_benched = request.form['EverBenched']
     exp_domain = int(request.form['ExperienceInCurrentDomain'])
 
-    # Format input into a DataFrame matching model feature order
-    input_data = pd.DataFrame([[
-        education,
-        joining_year,
-        city,
-        payment_tier,
-        age,
-        gender,
-        ever_benched,
-        exp_domain,
-    ]],
-                              columns=[
-                                  'Education',
-                                  'JoiningYear',
-                                  'City',
-                                  'PaymentTier',
-                                  'Age',
-                                  'Gender',
-                                  'EverBenched',
-                                  'ExperienceInCurrentDomain',
-                              ])
+    # Map categorical text features into numeric equivalents (matching LabelEncoder sorting)
+    education_map = {'Bachelors': 0, 'Masters': 1, 'PHD': 2}
+    city_map = {'Bangalore': 0, 'New Delhi': 1, 'Pune': 2}
+    gender_map = {'Female': 0, 'Male': 1}
+    ever_benched_map = {'No': 0, 'Yes': 1}
+
+    edu_val = education_map.get(education, 0)
+    city_val = city_map.get(city, 0)
+    gender_val = gender_map.get(gender, 0)
+    benched_val = ever_benched_map.get(ever_benched, 0)
+
+    # Format input into a numeric DataFrame matching model feature order
+    input_data = pd.DataFrame(
+        [[
+            edu_val,
+            joining_year,
+            city_val,
+            payment_tier,
+            age,
+            gender_val,
+            benched_val,
+            exp_domain,
+        ]],
+        columns=[
+            'Education',
+            'JoiningYear',
+            'City',
+            'PaymentTier',
+            'Age',
+            'Gender',
+            'EverBenched',
+            'ExperienceInCurrentDomain',
+        ],
+    )
 
     # Predict using the loaded Naive Bayes model
     prediction = model.predict(input_data)[0]

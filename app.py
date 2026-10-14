@@ -6,27 +6,33 @@ import pandas as pd
 
 app = Flask(__name__)
 
-# Safely load the trained Naive Bayes model
-MODEL_PATH = 'naive_bayes.pkl'  # Change to 'naive.pkl' if that is your exact file name
+# --- DEBUGGING STEP ---
+print('=== CURRENT DIRECTORY FILES ===')
+current_files = os.listdir('.')
+print(current_files)
+print('===============================')
 
+# Try to locate the pickle file automatically across common names
+POSSIBLE_FILENAMES = ['naive_bayes.pkl', 'naive.pkl', 'model.pkl']
 model = None
 model_load_error = None
+loaded_filename = None
 
 try:
-  if os.path.exists(MODEL_PATH):
-    with open(MODEL_PATH, 'rb') as f:
-      model = pickle.load(f)
-  else:
-    alt_path = 'naive.pkl'
-    if os.path.exists(alt_path):
-      with open(alt_path, 'rb') as f:
+  for filename in POSSIBLE_FILENAMES:
+    if os.path.exists(filename):
+      with open(filename, 'rb') as f:
         model = pickle.load(f)
-    else:
-      model_load_error = (
-          f"Model file '{MODEL_PATH}' (or 'naive.pkl') not found in directory."
-      )
+        loaded_filename = filename
+        break
+
+  if model is None:
+    model_load_error = (
+        f'Model file not found! Checked: {POSSIBLE_FILENAMES}. '
+        f'Files currently in directory: {current_files}'
+    )
 except Exception as e:
-  model_load_error = f'Error loading model: {str(e)}'
+  model_load_error = f'Error loading model from file: {str(e)}'
 
 # HTML template with modern Tailwind CSS layout
 HTML_TEMPLATE = """
@@ -50,8 +56,12 @@ HTML_TEMPLATE = """
         <div class="p-8">
             {% if model_error %}
             <div class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg">
-                <p class="font-bold">Configuration Warning</p>
-                <p>{{ model_error }}</p>
+                <p class="font-bold">Deployment Notice / Warning</p>
+                <p class="text-sm mt-1">{{ model_error }}</p>
+            </div>
+            {% else %}
+            <div class="mb-6 p-4 bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 rounded-lg">
+                <p class="text-sm font-medium">Model successfully loaded from: <strong>{{ loaded_file }}</strong></p>
             </div>
             {% endif %}
 
@@ -152,7 +162,10 @@ HTML_TEMPLATE = """
 @app.route('/')
 def home():
   return render_template_string(
-      HTML_TEMPLATE, prediction_text=None, model_error=model_load_error
+      HTML_TEMPLATE,
+      prediction_text=None,
+      model_error=model_load_error,
+      loaded_file=loaded_filename,
   )
 
 
@@ -163,10 +176,10 @@ def predict():
         HTML_TEMPLATE,
         prediction_text='Error: Model is not loaded.',
         model_error=model_load_error,
+        loaded_file=loaded_filename,
     )
 
   try:
-    # Extract string values from form input
     education = request.form['Education']
     joining_year = int(request.form['JoiningYear'])
     city = request.form['City']
@@ -176,7 +189,7 @@ def predict():
     ever_benched = request.form['EverBenched']
     exp_domain = int(request.form['ExperienceInCurrentDomain'])
 
-    # Map categorical text features into numeric values to prevent string-to-float errors
+    # Categorical mapping
     education_map = {'Bachelors': 0, 'Masters': 1, 'PHD': 2}
     city_map = {'Bangalore': 0, 'New Delhi': 1, 'Pune': 2}
     gender_map = {'Female': 0, 'Male': 1}
@@ -187,7 +200,6 @@ def predict():
     gender_val = gender_map.get(gender, 0)
     benched_val = ever_benched_map.get(ever_benched, 0)
 
-    # Format input into a numeric DataFrame matching model feature order[cite: 2]
     input_data = pd.DataFrame(
         [[
             edu_val,
@@ -211,10 +223,7 @@ def predict():
         ],
     )
 
-    # Predict using the loaded Naive Bayes model
     prediction = model.predict(input_data)[0]
-
-    # Map output (1 = Leave, 0 = Stay)
     result_text = (
         'Employee Likely to Leave'
         if prediction == 1
@@ -222,7 +231,10 @@ def predict():
     )
 
     return render_template_string(
-        HTML_TEMPLATE, prediction_text=result_text, model_error=model_load_error
+        HTML_TEMPLATE,
+        prediction_text=result_text,
+        model_error=model_load_error,
+        loaded_file=loaded_filename,
     )
 
   except Exception as e:
@@ -230,6 +242,7 @@ def predict():
         HTML_TEMPLATE,
         prediction_text=f'Error in prediction: {str(e)}',
         model_error=model_load_error,
+        loaded_file=loaded_filename,
     )
 
 
